@@ -1,12 +1,8 @@
 import os
-import sys
 import datetime
 import argparse
 from faster_whisper import WhisperModel
 
-# =========================
-# CONFIGURATION
-# =========================
 
 def format_timestamp(seconds: float):
     """Convert seconds to SRT timestamp format: HH:MM:SS,mmm"""
@@ -18,15 +14,20 @@ def format_timestamp(seconds: float):
     return f'{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}'
 
 
-def generate_subtitles(input_video: str, output_srt: str = None, model_size: str = 'large-v3', task: str = 'translate'):
+def generate_subtitles(input_video: str, output_srt: str = None,
+                       model_size: str = 'large-v3', task: str = 'translate'):
     """
     Generate subtitles from a video file using faster-whisper.
 
+    Timing: Uses raw whisper segment timestamps with a small 50ms lead-in
+    for natural reading. No overlaps — each subtitle starts only after
+    the previous one ends.
+
     Args:
         input_video: Path to the input video file
-        output_srt: Path for the output SRT file (default: same name as video with .srt)
-        model_size: Whisper model size (tiny, base, small, medium, large-v2, large-v3)
-        task: 'translate' (to English) or 'transcribe' (keep original language)
+        output_srt:  Path for the output SRT file (default: same name .srt)
+        model_size:  Whisper model size
+        task:        'translate' (to English) or 'transcribe' (keep original)
     """
     if not output_srt:
         output_srt = input_video.rsplit('.', 1)[0] + '.srt'
@@ -39,7 +40,6 @@ def generate_subtitles(input_video: str, output_srt: str = None, model_size: str
         print(f'Error: File not found: {input_video}')
         return False
 
-    # CPU-only environment -> use int8 for best performance
     device = 'cpu'
     compute_type = 'int8'
 
@@ -47,14 +47,9 @@ def generate_subtitles(input_video: str, output_srt: str = None, model_size: str
     print(f'Compute type: {compute_type}')
     print(f'Loading model: {model_size} ...')
 
-    model = WhisperModel(
-        model_size,
-        device=device,
-        compute_type=compute_type
-    )
+    model = WhisperModel(model_size, device=device, compute_type=compute_type)
 
     print(f'Running task: {task} ...')
-    print(f'Detected language will be shown below.')
 
     segments, info = model.transcribe(
         input_video,
@@ -62,35 +57,57 @@ def generate_subtitles(input_video: str, output_srt: str = None, model_size: str
         beam_size=5,
         best_of=5,
         vad_filter=True,
+        vad_parameters=dict(
+            min_silence_duration_ms=300,
+            speech_pad_ms=200,
+        ),
         word_timestamps=True,
         condition_on_previous_text=False,
         temperature=0.0,
         compression_ratio_threshold=2.2,
         log_prob_threshold=-1.0,
         no_speech_threshold=0.6,
-        repetition_penalty=1.2
+        repetition_penalty=1.2,
     )
 
     print(f"Detected language: {info.language} (probability: {info.language_probability:.2f})")
     print(f'Saving subtitles to: {output_srt}')
 
+    # Collect all segments first, then fix overlaps
+    raw_segments = []
+    for segment in segments:
+        text = segment.text.strip()
+        if not text:
+            continue
+        raw_segments.append({
+            'start': segment.start,
+            'end': segment.end,
+            'text': text,
+        })
+
+    # Fix timing: small lead-in, enforce no overlaps, minimum duration
+    LEAD_IN = 0.05          # 50ms before speech starts
+    MIN_DURATION = 0.8      # minimum 800ms per subtitle
+    MIN_GAP = 0.15          # 150ms gap between subtitles
+
+    prev_end = 0.0
     count = 0
     with open(output_srt, 'w', encoding='utf-8') as f:
-        for i, segment in enumerate(segments, start=1):
-            start = max(0, segment.start - 0.10)
-            end = max(start + 0.1, segment.end - 0.03)
-            text = segment.text.strip()
+        for seg in raw_segments:
+            start = max(prev_end + MIN_GAP, seg['start'] - LEAD_IN)
+            end = seg['end']
 
-            if not text:
-                continue
+            # Enforce minimum duration
+            if end - start < MIN_DURATION:
+                end = start + MIN_DURATION
 
-            f.write(f'{i}\n')
+            text = seg['text']
+
+            f.write(f'{count + 1}\n')
             f.write(f'{format_timestamp(start)} --> {format_timestamp(end)}\n')
             f.write(f'{text}\n\n')
             count += 1
-
-            if i % 25 == 0:
-                print(f'  Processed {i} segments...')
+            prev_end = end
 
     print(f'\nDone! {count} subtitle entries written.')
     print(f'Subtitle file saved at: {output_srt}')
@@ -107,7 +124,6 @@ if __name__ == '__main__':
                         help='Task: translate (to English) or transcribe (original language)')
 
     args = parser.parse_args()
-
     generate_subtitles(
         input_video=args.input_video,
         output_srt=args.output,

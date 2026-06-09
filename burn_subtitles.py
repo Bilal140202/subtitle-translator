@@ -74,8 +74,8 @@ def burn_subtitles(
     input_srt: str,
     output_video: str = None,
     font_name: str = 'Montserrat Bold',
-    font_size: int = 24,
-    bar_height: int = 60,
+    font_size: int = 30,
+    bar_height: int = 80,
     outline_width: int = 3,
     margin_v: int = 10,
     bitrate: str = '2200k',
@@ -182,8 +182,8 @@ if __name__ == '__main__':
     parser.add_argument('input_srt', help='Path to the .srt subtitle file')
     parser.add_argument('--output', '-o', help='Output video path (default: <name>_subtitled.mp4)')
     parser.add_argument('--font', default='Montserrat Bold', help='Font name (default: Montserrat Bold)')
-    parser.add_argument('--font-size', type=int, default=24, help='Font size in points (default: 24)')
-    parser.add_argument('--bar-height', type=int, default=60, help='Black bar height in pixels (default: 60)')
+    parser.add_argument('--font-size', type=int, default=30, help='Font size in points (default: 30)')
+    parser.add_argument('--bar-height', type=int, default=80, help='Black bar height in pixels (default: 80)')
     parser.add_argument('--outline', type=int, default=3, help='Black outline thickness in points (default: 3)')
     parser.add_argument('--margin', type=int, default=10, help='Bottom margin in padded frame (default: 10)')
     parser.add_argument('--bitrate', default='2200k', help='Video bitrate e.g. 2200k, 4000k (default: 2200k)')
