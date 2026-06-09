@@ -54,7 +54,7 @@ python generate_subtitles.py video.mp4 -o custom.srt
 
 ### `burn_subtitles.py` — Embed Styled Subtitles into Video
 
-Burns `.srt` subtitles into the video with a clean, professional look.
+Burns `.srt` subtitles into the video with a professional cinematic look.
 
 ```bash
 # Default styling (recommended)
@@ -63,21 +63,27 @@ python burn_subtitles.py video.mp4 video.srt
 # Custom output path
 python burn_subtitles.py video.mp4 video.srt -o output.mp4
 
-# Adjust font size and bottom margin
-python burn_subtitles.py video.mp4 video.srt --font-size 24 --margin 50
+# Adjust font size, bar height, and outline thickness
+python burn_subtitles.py video.mp4 video.srt --font-size 28 --bar-height 80 --outline 4
 
 # Use a different font
-python burn_subtitles.py video.mp4 video.srt --font "Noto Sans"
+python burn_subtitles.py video.mp4 video.srt --font "Bebas Neue"
+
+# Higher quality (larger file)
+python burn_subtitles.py video.mp4 video.srt --bitrate 4000k
 ```
 
-| Flag              | Default          | Description                              |
-|-------------------|------------------|------------------------------------------|
+| Flag              | Default            | Description                              |
+|-------------------|--------------------|------------------------------------------|
 | `--output, -o`    | `<name>_subtitled.mp4` | Output video path               |
-| `--font`          | `Liberation Sans` | Font family (must be installed)       |
-| `--font-size`     | `22`             | Font size in points                     |
-| `--margin`        | `35`             | Bottom margin in pixels                 |
+| `--font`          | `Montserrat Bold`  | Font family (must be installed)          |
+| `--font-size`     | `24`               | Font size in points                      |
+| `--bar-height`    | `60`               | Black bar height at bottom in pixels     |
+| `--outline`       | `3`                | Black outline thickness in points        |
+| `--margin`        | `12`               | Bottom margin within black bar           |
+| `--bitrate`       | `2200k`            | Video bitrate (e.g. 2200k, 4000k)        |
 
-**Subtitle style:** Bold white text on a semi-transparent black background box, bottom-center aligned with comfortable margins. Uses `BorderStyle=3` (opaque box) for maximum readability on any background.
+**Subtitle style:** Bold white text with thick black outline (stroke), fixed bottom-center position on a solid black bar appended below the video. The original video content is never cropped — the black bar is added as extra space.
 
 ## Supported Models
 
@@ -92,10 +98,22 @@ python burn_subtitles.py video.mp4 video.srt --font "Noto Sans"
 ## How It Works
 
 1. **Transcription** — Loads a faster-whisper model (CTranslate2 optimized), runs VAD-based voice activity detection to skip silence, transcribes with beam search (beam_size=5, best_of=5), and applies anti-hallucination filters
-2. **Burning** — Uses ffmpeg + libass to render subtitles directly into the video frames with styled formatting (bold font, semi-transparent box, bottom alignment)
+2. **Burning** — Uses ffmpeg + libass to render subtitles directly into the video frames. A black bar is appended at the bottom (no content is cropped), and white bold text with a thick black outline is rendered at a fixed position on the bar.
+
+## Font Setup (first time)
+
+The default font is **Montserrat Bold**. Install it once:
+
+```bash
+mkdir -p ~/.local/share/fonts
+curl -sL https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Bold.ttf \
+  -o ~/.local/share/fonts/Montserrat-Bold.ttf
+fc-cache -f
+```
 
 ## Requirements
 
 - Python 3.9+
-- ffmpeg (system package, with libass support)
+- ffmpeg (system package, with libass + libx264 support)
+- Montserrat Bold font (or any installed font)
 - See `requirements.txt` for Python dependencies
